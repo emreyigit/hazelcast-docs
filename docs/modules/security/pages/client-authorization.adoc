@@ -190,7 +190,9 @@ The following is the list of client permissions that can be configured on the me
 
 === All permissions
 
-The `<all-permissions>`` permission grants clients access to all data and features.
+`<all-permissions>` grants clients access to all data and features.
+The client specified in the following code example is used by Hazelcast Management Center when it connects to clusters.
+To learn more about this client, see xref:{page-latest-supported-mc}@management-center:ROOT:connecting-members.adoc[].
 
 [tabs] 
 ==== 
@@ -221,10 +223,9 @@ all:
 
 === Management Permission
 
-The `<management-permission>`` permission defines which
-client principals/endpoints are allowed to perform management tasks.
-The client specified in the following code example is used by Hazelcast Management Center
-when it connects to clusters. To learn more about this client, see xref:{page-latest-supported-mc}@management-center:ROOT:connecting-members.adoc[].
+`<management-permission>` defines which client principals/endpoints are allowed to perform management tasks.
+
+WARNING: For Hazelcast Management Center to work properly, `management-permission` is not sufficient. `all-permissions` is required.
 
 [tabs]
 ====
@@ -1064,9 +1065,9 @@ NOTE: The name provided in `cache-permission` must be the Hazelcast distributed
 object name that corresponds to the `Cache` as described in
 the xref:jcache:hazelcast-integration.adoc[JCache - Hazelcast Instance Integration section].
 
-=== Vector Collection Permission (Beta)
+=== Vector collection permission (Beta)
 
-Actions: all, create, destroy, put, read, remove, optimize
+Actions: all, create, destroy, put, read, remove, optimize.
 
 [tabs] 
 ==== 
@@ -1101,7 +1102,7 @@ vector-collection:
 ----
 ====
 
-=== User Code Deployment Permission
+=== User Code Deployment permission
 
 Actions: all, deploy/
 
@@ -1666,4 +1667,3 @@ The table below illustrates how permission evaluation changes when `priority-gra
 | Implication from Deny only   | ❌                           | ❌
 | Both Grant and Deny Imply    | ❌                           | ✅
 |============================================================================
-

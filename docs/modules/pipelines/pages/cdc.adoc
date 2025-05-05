@@ -152,13 +152,12 @@ mysql> SELECT * FROM customers;
 +
 If you already have Hazelcast and you skipped the above steps, make sure to
 follow from here on.
-
 ifdef::snapshot[]
-Download and extract the link:https://repository.hazelcast.com/snapshot/com/hazelcast/hazelcast-enterprise/hazelcast-enterprise-{ee-version}.zip[Hazelcast ZIP file].
-. Make sure the MySQL CDC plugin is in the `lib/` directory. You must manually download the MySQL CDC plugin's `jar-with-dependencies` from link:https://hazelcast.jfrog.io/artifactory/snapshot/com/hazelcast/jet/hazelcast-enterprise-cdc-mysql/{ee-version}[Hazelcast's Maven repository, window=_blank] and then copy it to the `lib/` directory.
+Download and extract the Hazelcast ZIP file from link:https://repository.hazelcast.com/snapshot/com/hazelcast/hazelcast-enterprise-distribution/{ee-version}[the repository].
+. Make sure the MySQL CDC plugin is in the `lib/` directory. You must manually download the MySQL CDC plugin's `jar-with-dependencies` from link:https://repository.hazelcast.com/snapshot/com/hazelcast/jet/hazelcast-enterprise-cdc-mysql/{ee-version}[Hazelcast's Maven repository, window=_blank] and then copy it to the `lib/` directory.
 endif::[]
 ifndef::snapshot[]
-. Make sure the MySQL CDC plugin is in the `lib/` directory. You must manually download the MySQL CDC plugin from link:https://hazelcast.jfrog.io/artifactory/release/com/hazelcast/jet/hazelcast-enterprise-cdc-mysql/{ee-version}/hazelcast-enterprise-cdc-mysql-{full-version}-jar-with-dependencies.jar[Hazelcast's Maven repository, window=_blank] and then copy it to the `lib/` directory.
+. Make sure the MySQL CDC plugin is in the `lib/` directory. You must manually download the MySQL CDC plugin from link:https://repository.hazelcast.com/release/com/hazelcast/jet/hazelcast-enterprise-cdc-mysql/{ee-version}/hazelcast-enterprise-cdc-mysql-{ee.-version}-jar-with-dependencies.jar[Hazelcast's Maven repository, window=_blank] and then copy it to the `lib/` directory.
 endif::[]
 +
 [source,bash]
@@ -208,19 +207,13 @@ plugins {
 group 'org.example'
 version '1.0-SNAPSHOT'
 
-repositories {
-    mavenCentral()
-    maven {
-        url = uri("https://repository.hazelcast.com/release/")
-    }
-    mavenLocal()
-}
+repositories.mavenCentral()
 
 dependencies {
-    implementation 'com.hazelcast:hazelcast-enterprise:{ee-version}'
+    implementation 'com.hazelcast:hazelcast:{os-version}'
     implementation 'com.hazelcast.jet:hazelcast-enterprise-cdc-debezium:{ee-version}'
     implementation 'com.hazelcast.jet:hazelcast-enterprise-cdc-mysql:{ee-version}'
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.18.0'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.11.0'
 }
 
 jar.manifest.attributes 'Main-Class': 'org.example.JetJob'
@@ -234,31 +227,17 @@ Maven::
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+   <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.example</groupId>
-    <artifactId>cdc-tutorial</artifactId>
-    <version>1.0-SNAPSHOT</version>
+   <groupId>org.example</groupId>
+   <artifactId>cdc-tutorial</artifactId>
+   <version>1.0-SNAPSHOT</version>
 
-    <properties>
-        <maven.compiler.release>17</maven.compiler.target>
-    </properties>
+   <properties>
+       <maven.compiler.release>17</maven.compiler.target>
+   </properties>
 
-    <repositories>
-        <repository>
-            <id>private-repository</id>
-            <name>Hazelcast Private Repository</name>
-            <url>https://repository.hazelcast.com/release/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
-
-    <dependencies>
+   <dependencies>
        <dependency>
            <groupId>com.hazelcast</groupId>
            <artifactId>hazelcast</artifactId>
@@ -277,9 +256,9 @@ Maven::
        <dependency>
            <groupId>com.fasterxml.jackson.core</groupId>
            <artifactId>jackson-annotations</artifactId>
-           <version>2.18.0</version>
+           <version>2.11.0</version>
        </dependency>
-    </dependencies>
+   </dependencies>
 
     <build>
         <plugins>

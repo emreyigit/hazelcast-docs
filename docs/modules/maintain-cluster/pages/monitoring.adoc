@@ -420,8 +420,8 @@ same metric with different values.
 
 The metric collection runs in regular intervals on each member, but note
 that the metric collection on different cluster members happens at
-different moments in time. So if you try to correlate metrics from
-different members, they can be from different moments of time.
+different moments in time. If you try to correlate metrics from
+different members, they may have different timestamps.
 
 === Hazelcast Metrics
 
@@ -530,11 +530,11 @@ they have form further sub-nodes in the resulting tree structure.
 ==== Prometheus
 
 Prometheus is a popular monitoring system and time series database.
-Setting up monitoring via Prometheus consists of two steps. First step
+Setting up monitoring via Prometheus consists of two steps. The first step
 is exposing an HTTP endpoint with metrics. The second step is setting up
 Prometheus server, which pulls the metrics in a specified interval.
 
-The Prometheus javaagent is already part of the Hazelcast
+The Prometheus Java agent is already part of the Hazelcast
 distribution and just needs to be enabled. Enable the agent and expose
 all metrics via HTTP endpoint by setting an environment variable
 PROMETHEUS_PORT, you can change the port to any available port:
@@ -550,6 +550,8 @@ Prometheus enabled on port 8080
 ```
 
 The metrics are available on `\http://localhost:8080`.
+
+NOTE: You will need to configure Prometheus to scrape each member individually, manage changes from scaling and restarts, and collate the metrics from all members. If you are an Enterprise customer, you can configure Prometheus to scrape metrics from Management Center to easily collect metrics for the whole cluster. See link:https://docs.hazelcast.com/management-center/latest/integrate/prometheus-monitoring[Prometheus Monitoring]. 
 
 For a guide on how to set up Prometheus server go to the
 https://prometheus.io/docs/prometheus/latest/getting_started[Prometheus website].
@@ -901,6 +903,8 @@ The following are the metrics that you can access via the `LocalTopicStats ` obj
 
 See the https://docs.hazelcast.org/docs/{os-version}/javadoc/com/hazelcast/topic/LocalTopicStats.html[`LocalTopicStats` Javadoc^] to see all the metrics.
 
+NOTE: There is a known issue with the `ReliableTopic` structure whereby if a `MessageListener` is removed, it can still be called by the internal `MessageRunner`, resulting in duplicated topic statistics. As a result, these statistics are unreliable and should be used for general insights only.
+
 === Executor Statistics
 
 To get local executor statistics, use the `getLocalExecutorStats()` method from the `IExecutorService` interface.
@@ -1245,15 +1249,13 @@ want to specify the port in the monitor
 
 == Diagnostics
 
-Hazelcast offers an extended set of diagnostics plugins for both Hazelcast members and  Java clients.
+Hazelcast offers an extended set of diagnostics plugins for both Hazelcast members and clients.
 A dedicated log file is used to write the diagnostics content, and a rolling file approach is used to
 prevent taking up too much disk space.
 
 === Enabling Diagnostics Logging
 
 To enable diagnostics logging, you should specify the following properties on the member side:
-
-NOTE: Properties over Diagnostics will be deprecated in Hazelcast 6.0. Please, refer to the new config API. If you are using properties and new configuration APIs to configure Diagnostics, the system properties will override the configuration API. We encourage you to use the new configuration API.
 
 [tabs] 
 ==== 
@@ -1264,23 +1266,14 @@ XML::
 ----
 <hazelcast>
     ...
-    <diagnostics enabled="true">
-        <!-- Diagnostics service configurations.-->
-        <log-directory>/user/dir/</log-directory>
-        <output-type>FILE</output-type>
-        <max-rolled-file-size-in-mb>50</max-rolled-file-size-in-mb>
-        <max-rolled-file-count>10</max-rolled-file-count>
-        <include-epoch-time>true</include-epoch-time>
-        <file-name-prefix>my-logs</file-name-prefix>
-
-        <!-- Optional properties for Diagnostics Plugins, see below for more details.-->
-        <plugin-properties>
-            <property name="hazelcast.diagnostics.metric.level">info</property>
-            <property name="hazelcast.diagnostics.invocation.sample.period.seconds">30</property>
-            <property name="hazelcast.diagnostics.pending.invocations.period.seconds">30</property>
-            <property name="hazelcast.diagnostics.slowoperations.period.seconds">30</property>
-        </plugin-properties>        
-    </diagnostics>
+    <properties>
+        <property name="hazelcast.diagnostics.enabled">true</property>
+        <property name="hazelcast.diagnostics.metric.level">info</property>
+        <property name="hazelcast.diagnostics.invocation.sample.period.seconds">30</property>
+        <property name="hazelcast.diagnostics.pending.invocations.period.seconds">30</property>
+        <property name="hazelcast.diagnostics.slowoperations.period.seconds">30</property>
+        <property name="hazelcast.diagnostics.storeLatency.period.seconds">60</property>
+    </properties>
     ...
 </hazelcast>
 ----
@@ -1293,17 +1286,13 @@ YAML::
 ----
 hazelcast:
     ...
-  diagnostics:
-    enabled: true
-    max-rolled-file-size-in-mb: 50
-    max-rolled-file-count: 10
-    include-epoch-time: true
-    log-directory: /user/dir
-    file-name-prefix: "my-logs"
-    output-type: "FILE"
-    # Optional properties for Diagnostics Plugins, see below for more details.
-    plugin-properties:
-      "hazelcast.diagnostics.storeLatency.period.seconds": '5'
+    properties:
+      hazelcast.diagnostics.enabled=true
+      hazelcast.diagnostics.metric.level=info
+      hazelcast.diagnostics.invocation.sample.period.seconds=30
+      hazelcast.diagnostics.pending.invocations.period.seconds=30
+      hazelcast.diagnostics.slowoperations.period.seconds=30
+      hazelcast.diagnostics.storeLatency.period.seconds=60
     ...
 ----
 --
@@ -1314,17 +1303,12 @@ Java::
 [source,java]
 ----
 Config config = new Config();
-config.getDiagnosticsConfig()
-                .setEnabled(true)
-                .setLogDirectory("/your/log/directory")
-                .setFileNamePrefix("my-logs")
-                .setOutputType(DiagnosticsOutputType.FILE)
-                .setMaxRolledFileSizeInMB(50)
-                .setMaxRolledFileCount(10)
-                .setIncludeEpochTime(true)
-                // Optional properties for Diagnostics Plugins, see below for more details.
-                .setProperty("hazelcast.diagnostics.metric.level", "info")
-                .setProperty("hazelcast.diagnostics.invocation.sample.period.seconds", "30");
+config.setProperty( "hazelcast.diagnostics.enabled", "true" );
+      .setProperty( "hazelcast.diagnostics.metric.level", "info" );
+      .setProperty( "hazelcast.diagnostics.invocation.sample.period.seconds", "30" );
+      .setProperty( "hazelcast.diagnostics.pending.invocations.period.seconds", "30" );
+      .setProperty( "hazelcast.diagnostics.slowoperations.period.seconds", "30" );
+      .setProperty( "hazelcast.diagnostics.storeLatency.period.seconds", "60" );
 ----
 --
 JVM::
@@ -1333,9 +1317,7 @@ JVM::
 .Java command
 [source,shell]
 ----
-java -Dhz.diagnostics.enabled=true
-     -Dhz.diagnostics.output-type=STDOUT     
-    # Plugins are configured over properties which can be set over DiagnosticsConfig object.
+java -Dhazelcast.diagnostics.enabled=true
      -Dhazelcast.diagnostics.metric.level=info
      -Dhazelcast.diagnostics.invocation.sample.period.seconds=30
      -Dhazelcast.diagnostics.pending.invocations.period.seconds=30
@@ -1346,100 +1328,19 @@ java -Dhz.diagnostics.enabled=true
 .JAVA_OPTS
 [source,shell]
 ----
-JAVA_OPTS="-Dhz.diagnostics.enabled=true -Dhz.diagnostics.output-type=STDOUT -Dhazelcast.diagnostics.metric.level=info -Dhazelcast.diagnostics.invocation.sample.period.seconds=30 -Dhazelcast.diagnostics.pending.invocations.period.seconds=30 -Dhazelcast.diagnostics.slowoperations.period.seconds=30 -Dhazelcast.diagnostics.storeLatency.period.seconds=60"
+JAVA_OPTS="-Dhazelcast.diagnostics.enabled=true -Dhazelcast.diagnostics.metric.level=info -Dhazelcast.diagnostics.invocation.sample.period.seconds=30 -Dhazelcast.diagnostics.pending.invocations.period.seconds=30 -Dhazelcast.diagnostics.slowoperations.period.seconds=30 -Dhazelcast.diagnostics.storeLatency.period.seconds=60"
 ----
 --
 ====
 
-On the Java client side, diagnostics can be configured over the `Config` object or config files similar to the member side.
+On the Java client side, it is enough to set the following properties:
 
-Java::
-+
---
-[source,java]
-----
-ClientConfig clientConfig = new ClientConfig();
-clientConfig.getDiagnosticsConfig()
-                .setEnabled(true)
-                .setLogDirectory("/your/log/directory")
-                .setFileNamePrefix("my-logs")
-                .setOutputType(DiagnosticsOutputType.FILE)
-                .setMaxRolledFileSizeInMB(50)
-                .setMaxRolledFileCount(10)
-                .setIncludeEpochTime(true)
-                // Optional properties for Diagnostics Plugins, see below for more details.
-                .setProperty("hazelcast.diagnostics.metric.level", "info");                
-----
---
-
-
-=== Cluster Wide Dynamic Configuration
-
-Diagnostics service can be configured dynamically at runtime. You can use the following ways to configure the service dynamically:
-
-
-[tabs] 
-==== 
-K8s Operator::
-+
---
-For more details please refer to hazelcast k8s operator documentation.
-
-[source,yaml]
-----
-apiVersion: hazelcast.com/v1alpha1
-kind: Hazelcast
-metadata:
-  name: hazelcast
-spec:
-  clusterSize: 3
-  repository: 'docker.io/hazelcast/hazelcast-enterprise'
-  version: 6.0.0
-  licenseKeySecretName: hazelcast-license-key
-  diagnostics:
-    outputType: FILE
-    includeEpochTime: false
-    maxRolledFileCount: 10
-    maxRolledFileSizeInMB: 50
-    fileNamePrefix: 'pod'
-    pluginProperties:
-      "hazelcast.diagnostics.storeLatency.period.seconds": '5'
-    pvc:
-      accessModes: [ "ReadWriteOnce" ]
-      requestStorage: 1Gi
-----
---
-
-Over an Embedded Member::
-+
---
-It can be configure over the `DiagnosticsConfig` object over a member. Clients cannot set diagnostics configuration over the cluster due to security restriction.
-
-[source,java]
-----
-Config config = new Config();
-config.getDiagnosticsConfig()
-                .setEnabled(false);
-
-HazelcastInstance hz = Hazelcast.newHazelcastInstance(config);
-
-DiagnosticsConfig diagnosticsConfig = new DiagnosticsConfig();
-diagnosticsConfig.setEnabled(true);        
-hz.getConfig().setDiagnosticsConfig(diagnosticsConfig);
-----
---
-Management Center::
-+
---
-
---
-
-====
-
+* `hazelcast.diagnostics.enabled=true`
+* `hazelcast.diagnostics.metric.level=info`
 
 === Diagnostics Log File
 
-You can use the following configuration to specify the location of the diagnostics log file:
+You can use the following property to specify the location of the diagnostics log file:
 
 [tabs] 
 ==== 
@@ -1450,14 +1351,9 @@ XML::
 ----
 <hazelcast>
     ...
-<hazelcast>
-    ...
-    <diagnostics>
-        <!-- Diagnostics service configurations.-->
-        <log-directory>/your/log/directory</log-directory>            
-    </diagnostics>
-    ...
-</hazelcast>
+    <properties>
+        <property name="hazelcast.diagnostics.directory">/your/log/directory</property>
+    </properties>
     ...
 </hazelcast>
 ----
@@ -1470,8 +1366,8 @@ YAML::
 ----
 hazelcast:
     ...
-    diagnostics:
-        log-directory: /your/log/directory
+    properties:
+      hazelcast.diagnostics.directory=/your/log/directory
     ...
 ----
 --
@@ -1482,8 +1378,7 @@ Java::
 [source,java]
 ----
 Config config = new Config();
-config.getDiagnosticsConfig()
-    .setLogDirectory("/your/log/directory");
+config.setProperty( "hazelcast.diagnostics.directory", "/your/log/directory" );
 ----
 --
 JVM::
@@ -1492,13 +1387,13 @@ JVM::
 .Java command
 [source,shell]
 ----
-java -Dhz.diagnostics.log-directory=/your/log/directory
+java -Dhazelcast.diagnostics.directory=/your/log/directory
 ----
 
 .JAVA_OPTS
 [source,shell]
 ----
-JAVA_OPTS="-Dhz.diagnostics.log-directory=/your/log/directory"
+JAVA_OPTS="-Dhazelcast.diagnostics.directory=/your/log/directory"
 ----
 --
 ====
@@ -1506,7 +1401,7 @@ JAVA_OPTS="-Dhz.diagnostics.log-directory=/your/log/directory"
 The name of the log file has the following format:
 
 ```
-diagnostics-<host IP>_<port>-<start time as milliseconds>-<file count in rolling>-.log
+diagnostics-<host IP>#<port>-<unique ID>.log
 ```
 
 You can set a custom string prefix for the name of log file using the following property.
@@ -1520,11 +1415,9 @@ XML::
 ----
 <hazelcast>
     ...
-    <diagnostics>
-    ...
-        <file-name-prefix>my-log-prefix</file-name-prefix>      
-    ...
-    </diagnostics>
+    <properties>
+        <property name="hazelcast.diagnostics.filename.prefix">foobar</property>
+    </properties>
     ...
 </hazelcast>
 ----
@@ -1537,8 +1430,8 @@ YAML::
 ----
 hazelcast:
     ...
-    diagnostics:        
-        file-name-prefix: "foobar"
+    properties:
+      hazelcast.diagnostics.filename.prefix=foobar
     ...
 ----
 --
@@ -1549,8 +1442,7 @@ Java::
 [source,java]
 ----
 Config config = new Config();
-config.getDiagnosticsConfig()                
-            .setFileNamePrefix("foobar");
+config.setProperty( "hazelcast.diagnostics.filename.prefix", "foobar" );
 ----
 --
 JVM::
@@ -1559,13 +1451,13 @@ JVM::
 .Java command
 [source,shell]
 ----
-java -Dhz.diagnostics.file-name-prefix=foobar
+java -Dhazelcast.diagnostics.filename.prefix=foobar
 ----
 
 .JAVA_OPTS
 [source,shell]
 ----
-JAVA_OPTS="--Dhz.diagnostics.file-name-prefix=foobar"
+JAVA_OPTS="-Dhazelcast.diagnostics.filename.prefix=foobar"
 ----
 --
 ====
@@ -1590,8 +1482,8 @@ The content format of the diagnostics log file is depicted below:
 ...
 ```
 
-A rolling file approach is used to prevent creating too much data for each run of Diagnostics. Diagnostics also can be configured dynamically. When the service enabled at runtime or new config applied while the service is enabled, diagnostics service creates a new session with a timestamp belongs to that start. The timestamp is also placed in the log file names which can be used to track log files produced by the service in a specific run. By default 10 files of 50MB each are allowed
-to exist. You can set the size of each file and number of files using the following configurations. If you change the config while the service is running, the previous files will not be part of the rolling file approach anymore. The new config will be applied to the new session created by the service.
+A rolling file approach is used to prevent creating too much data. By default 10 files of 50MB each are allowed
+to exist. You can set the size of each file and number of files using the following properties.
 
 [tabs] 
 ==== 
@@ -1602,12 +1494,10 @@ XML::
 ----
 <hazelcast>
     ...
-    <diagnostics>
-    ...
-        <max-rolled-file-size-in-mb>50</max-rolled-file-size-in-mb>
-        <max-rolled-file-count>10</max-rolled-file-count>
-    ...  
-    </diagnostics>
+    <properties>
+        <property name="hazelcast.diagnostics.max.rolled.file.size.mb">100</property>
+        <property name="hazelcast.diagnostics.max.rolled.file.count">5</property>
+    </properties>
     ...
 </hazelcast>
 ----
@@ -1620,9 +1510,9 @@ YAML::
 ----
 hazelcast:
     ...
-    diagnostics:
-      max-rolled-file-size-in-mb: 50
-      max-rolled-file-count: 10
+    properties:
+      hazelcast.diagnostics.max.rolled.file.size.mb=100
+      hazelcast.diagnostics.max.rolled.file.count=5
     ...
 ----
 --
@@ -1633,9 +1523,8 @@ Java::
 [source,java]
 ----
 Config config = new Config();
-config.getDiagnosticsConfig()
-        .setMaxRolledFileSizeInMB(50)
-        .setMaxRolledFileCount(10);
+config.setProperty( "hazelcast.diagnostics.max.rolled.file.size.mb", "100" );
+      .setProperty( "hazelcast.diagnostics.max.rolled.file.count", "5" );
 ----
 --
 JVM::
@@ -1644,14 +1533,14 @@ JVM::
 .Java command
 [source,shell]
 ----
-java -Dhz.diagnostics.max-rolled-file-size-in-mb=100
-     -Dhz.diagnostics.max-rolled-file-count=5
+java -Dhazelcast.diagnostics.max.rolled.file.size.mb=100
+     -Dhazelcast.diagnostics.max.rolled.file.count=5
 ----
 
 .JAVA_OPTS
 [source,shell]
 ----
-JAVA_OPTS="-Dhz.diagnostics.max-rolled-file-size-in-mb=100 -Dhz.diagnostics.max-rolled-file-count=5"
+JAVA_OPTS="-Dhazelcast.diagnostics.max.rolled.file.size.mb=100 -Dhazelcast.diagnostics.max.rolled.file.count=5"
 ----
 --
 ====
@@ -1669,11 +1558,9 @@ XML::
 ----
 <hazelcast>
     ...
-        <diagnostics>
-    ...
-        <output-type>FILE|STDOUT|LOGGER</output-type>
-    ...  
-    </diagnostics>
+    <properties>
+        <property name="hazelcast.diagnostics.stdout">FILE|STDOUT|LOGGER</property>
+    </properties>
     ...
 </hazelcast>
 ----
@@ -1686,8 +1573,8 @@ YAML::
 ----
 hazelcast:
     ...
-    diagnostics:
-        output-type: "FILE"|"STDOUT"|"LOGGER"
+    properties:
+      hazelcast.diagnostics.stdout=FILE|STDOUT|LOGGER
     ...
 ----
 --
@@ -1698,12 +1585,7 @@ Java::
 [source,java]
 ----
 Config config = new Config();
-config.getDiagnosticsConfig()
-        .setOutputType(DiagnosticsOutputType.FILE);
-        // OR
-        .setOutputType(DiagnosticsOutputType.STDOUT);
-        // OR
-        .setOutputType(DiagnosticsOutputType.LOGGER);
+config.setProperty( "hazelcast.diagnostics.stdout", "FILE|STDOUT|LOGGER" );
 ----
 --
 JVM::
@@ -1712,13 +1594,13 @@ JVM::
 .Java command
 [source,shell]
 ----
-java -Dhz.diagnostics.output-type=FILE|STDOUT|LOGGER
+java -Dhazelcast.diagnostics.stdout=FILE|STDOUT|LOGGER
 ----
 
 .JAVA_OPTS
 [source,shell]
 ----
-JAVA_OPTS="-Dhz.diagnostics.output-type=FILE|STDOUT|LOGGER"
+JAVA_OPTS="-Dhazelcast.diagnostics.stdout=FILE|STDOUT|LOGGER"
 ----
 --
 ====
@@ -1746,11 +1628,9 @@ XML::
 ----
 <hazelcast>
     ...
-    <diagnostics>        
-    ...
-        <output-type>LOGGER</output-type>    
-    ...
-    </diagnostics>
+    <properties>
+        <property name="hazelcast.diagnostics.stdout">LOGGER</property>
+    </properties>
     ...
 </hazelcast>
 ----
@@ -1763,8 +1643,8 @@ YAML::
 ----
 hazelcast:
     ...
-    diagnostics:
-        output-type: "LOGGER"
+    properties:
+      hazelcast.diagnostics.stdout=LOGGER
     ...
 ----
 --
@@ -1775,8 +1655,7 @@ Java::
 [source,java]
 ----
 Config config = new Config();
-    config.getDiagnosticsConfig()
-        .setOutputType(DiagnosticsOutputType.LOGGER);
+config.setProperty( "hazelcast.diagnostics.stdout", "LOGGER" );
 ----
 --
 JVM::
@@ -1785,13 +1664,13 @@ JVM::
 .Java command
 [source,shell]
 ----
-java -Dhz.diagnostics.output-type=LOGGER
+java -Dhazelcast.diagnostics.stdout=LOGGER
 ----
 
 .JAVA_OPTS
 [source,shell]
 ----
-JAVA_OPTS="-Dhz.diagnostics.output-type=LOGGER"
+JAVA_OPTS="-Dhazelcast.diagnostics.stdout=LOGGER"
 ----
 --
 ====
@@ -1815,77 +1694,6 @@ NOTE: The diagnostic logs have the `DEBUG` level by default; if you don't want t
 
 As it is stated in the introduction of this section and shown in the log file content above,
 diagnostics utility consists of plugins such as BuildInfo, SystemProperties and HazelcastInstance.
-
-
-You can configure the plugins using the following ways:
-[tabs] 
-==== 
-XML:: 
-+ 
--- 
-[source,xml]
-----
-<hazelcast>
-    ...
-    <diagnostics>        
-    ...
-        <plugin-properties>
-            <property name="hazelcast.diagnostics.metric.level">info</property>
-            <property name="hazelcast.diagnostics.invocation.sample.period.seconds">30</property>
-            <property name="hazelcast.diagnostics.pending.invocations.period.seconds">30</property>
-            <property name="hazelcast.diagnostics.slowoperations.period.seconds">30</property>
-        </plugin-properties>        
-    ...
-    </diagnostics>
-    ...
-</hazelcast>
-----
---
-
-YAML::
-+
---
-[source,yaml]
-----
-hazelcast:
-    ...
-    diagnostics:
-        plugin-properties:
-            "hazelcast.diagnostics.metric.level": "info"
-            "hazelcast.diagnostics.invocation.sample.period.seconds": '30'
-            "hazelcast.diagnostics.pending.invocations.period.seconds": '30'
-    ...
-----
---
-
-Java::
-+
---
-[source,java]
-----
-Config config = new Config();
-config.getDiagnosticsConfig()
-            .setProperty("hazelcast.diagnostics.metric.level", "info")
-            .setProperty("hazelcast.diagnostics.invocation.sample.period.seconds", "30")
-            .setProperty("hazelcast.diagnostics.pending.invocations.period.seconds", "30");
-----
---
-JVM::
-+
---
-.Java command
-[source,shell]
-----
-java -Dhazelcast.diagnostics.pending.invocations.period.seconds=30
-----
-
-.JAVA_OPTS
-[source,shell]
-----
-JAVA_OPTS="-Dhazelcast.diagnostics.pending.invocations.period.seconds=30"
-----
---
-====
 
 ==== BuildInfo
 
@@ -1919,7 +1727,7 @@ of metrics with their descriptions.
 
 ==== SlowOperations
 
-It shows the slow operations and invocations, See the xref:performance:slowoperationdetector.adoc[SlowOperationDetector section]
+It shows the slow operations and invocations, See the xref:cluster-performance:threading.adoc#slowoperationdetector[SlowOperationDetector section]
 for more information.
 
 ==== Invocations
@@ -2056,8 +1864,6 @@ Please note that if you enable this, you may get a lot of log entries if you hav
 
 ==== StoreLatency
 
-!NOTE: This plugin is disabled by default and it cannot be enabled or disable dynamically at runtime. If you configure to enable it before starting the member, it will be enabled but Diagnostics service cannot be disable at runtime. If you configure it after starting the member, it will not be enabled.
-
 It shows statistics including the count of methods for each store (`load`, `loadAll`,
 `loadAllKeys`, etc.), average and maximum latencies for each store method calls and
 latency distributions for each store. The following is an example output snippet as part of
@@ -2183,7 +1989,7 @@ So a heartbeat arriving after 9 seconds is not rendered, but a heartbeat receive
 ==== OperationThreadSamples
 
 This plugin samples the operation threads and checks the running operations/tasks.
-Hazelcast has the xref:performance:slowoperationdetector.adoc[slow operation detector] which is useful for
+Hazelcast has the xref:cluster-performance:threading.adoc#slowoperationdetector[slow operation detector] which is useful for
 very slow operations. But it may not be efficient for high volumes of not too slow operations.
 Using the OperationThreadSamples plugin it is more clear to see which operations are actually running.
 
@@ -2646,6 +2452,15 @@ You can find the JMX API definition below with descriptions and the API methods 
 **  Is shutdown ( `isShutdown` )
 **  Is terminated ( `isTerminated` )
 **  Completed task count ( `completedTaskCount` )
+* **Vector Query Executor ( `HazelcastInstance.ManagedExecutorService` )** [.enterprise]*{enterprise-product-name}*
+**  Name ( `name` )
+**  Work queue size ( `queueSize` )
+**  Thread count of the pool ( `poolSize` )
+**  Maximum thread count of the pool ( `maximumPoolSize` )
+**  Remaining capacity of the work queue ( `remainingQueueCapacity` )
+**  Is shutdown ( `isShutdown` )
+**  Is terminated ( `isTerminated` )
+**  Completed task count ( `completedTaskCount` )
 
 == Alerting
 
@@ -2683,7 +2498,7 @@ com.hazelcast.sql.HazelcastSqlException: Cannot resolve IMap schema because it d
 ```
 
 
-* Prometheus: You can use this 3rd party tool to filter alert metrics. See the
+* Prometheus: You can use this third-party tool to filter alert metrics. See the
 xref:maintain-cluster:monitoring.adoc#prometheus-2[Prometheus section] for details.
 
 Besides the above channels, you can also benefit from Hazelcast logging mechanism as an indirect
@@ -2691,74 +2506,17 @@ way of getting alerts. See the xref:maintain-cluster:monitoring.adoc#logging[Log
 
 To learn the possible actions on the alerts, see the xref:troubleshoot:remedies-for-alerts.adoc[Actions and Remedies for Alerts section].
 
-== Integrating with 3rd Party Tools
+== Integrating with Third-Party Tools
+[.enterprise]*{enterprise-product-name}*
+
+Management Center monitors your entire Hazelcast cluster, making it much easier to integrate with third-party tools without needing to connect to individual members, manage changes from scaling and restarts, or collate metrics from all members.
 
 === Prometheus
 
-Hazelcast Management Center can expose the metrics collected from cluster members to https://prometheus.io/[Prometheus^]. This
+Hazelcast Management Center can expose the metrics collected from cluster members to https://prometheus.io/[Prometheus]. This
 feature can be turned on by setting the `hazelcast.mc.prometheusExporter.enabled` system property to `true`.
 
-Prometheus can be configured to scrape Management Center in `prometheus.yml` as follows:
-
-[source,yaml]
-----
-scrape_configs:
-  - job_name: 'HZ MC'
-    # scheme defaults to 'http'.
-    static_configs:
-    - targets: ['localhost:8080'] # replace this address with the network address of Hazelcast Management Center
-----
-
-After starting Prometheus with this configuration, all metrics will be exported to Prometheus with the `hz_` prefix. The metrics
-are also available via the xref:maintain-cluster:monitoring.adoc#jmx-api-per-member[member JMX API].
-With the default configuration, Management Center exports all metrics reported by the cluster members. Since it can be overly
-verbose for some use cases, the metrics can be filtered with the `hazelcast.mc.prometheusExporter.filter.metrics.included`
-or the `hazelcast.mc.prometheusExporter.filter.metrics.excluded` system properties, both being comma-separated lists of
-metric names.
-
-Example of starting Management Center with specifying the metrics exported to Prometheus:
-
-[source,bash,subs="attributes+"]
-----
-java -jar -Dhazelcast.mc.prometheusExporter.enabled=true \
-  -Dhazelcast.mc.prometheusExporter.filter.metrics.included=hz_topic_totalReceivedMessages,hz_map_totalPutLatency \
-  -jar hazelcast-management-center-{full-version}.jar
-----
-
-Example of starting Management Center with specifying the metrics to be excluded from the Prometheus export:
-
-[source,bash,subs="attributes+"]
-----
-java -jar -Dhazelcast.mc.prometheusExporter.enabled=true \
-  -Dhazelcast.mc.prometheusExporter.filter.metrics.excluded=hz_os_systemLoadAverage,hz_memory_freeHeap \
-  -jar hazelcast-management-center-{full-version}.jar
-----
-
-By default, Prometheus connects via the same IP and port as the Management Center web interface. It is possible to
-override the port number using the `-Dhazelcast.mc.prometheusExporter.port` system property. Let's say you have
-started Management Center as shown below:
-
-[source,bash,subs="attributes+"]
-----
-java -jar -Dhazelcast.mc.prometheusExporter.enabled=true \
-  -Dhazelcast.mc.prometheusExporter.port=2222 \
-  -jar hazelcast-management-center-{full-version}.jar
-----
-
-Then, the Prometheus endpoint will be available at `http://localhost:2222/metrics`, which should be reflected by the
-Prometheus configuration as below:
-
-[source,yaml]
-----
-scrape_configs:
-  - job_name: 'HZ MC'
-    static_configs:
-    - targets: ['localhost:2222']
-----
-
-NOTE: If you want to visualize the Prometheus metrics using Grafana, then you can start with
-https://grafana.com/grafana/dashboards/13183[this dashboard].
-
+This is an {enterprise-product-name} feature. See link:https://docs.hazelcast.com/management-center/latest/integrate/prometheus-monitoring[Prometheus Monitoring] for details.
 
 === AppDynamics
 
@@ -2766,27 +2524,7 @@ You can use the xref:{page-latest-supported-mc}@management-center:jmx:jmx.adoc[C
 with *AppDynamics*. To perform this integration, attach the AppDynamics
 Java agent to the Management Center.
 
-For agent installation, see the
-http://docs.appdynamics.com/display/PRO14S/Install%2Bthe%2BApp%2BAgent%2Bfor%2BJava[Install the App Agent for Java] page.
-
-For monitoring on AppDynamics, see the
-http://docs.appdynamics.com/display/PRO14S/Monitor%2BJMX%2BMBeans#MonitorJMXMBeans-UsingAppDynamicsforJMXMonitoring[Using AppDynamics for JMX Monitoring] page.
-
-After installing AppDynamics agent, you can start the Management Center as shown below:
-
-[source,bash,subs="attributes+"]
-----
-java -javaagent:/path/to/javaagent.jar \
-     -Dhazelcast.mc.jmx.enabled=true \
-     -Dhazelcast.mc.jmx.port=9999 -jar hazelcast-management-center-{full-version}.jar
-----
-
-When the Management Center starts, you should see the logs below:
-
-```
-Started AppDynamics Java Agent Successfully.
-Hazelcast Management Center starting on port 8080 at path : /
-```
+This is an {enterprise-product-name} feature. See link:https://docs.hazelcast.com/management-center/latest/integrate/jmx#integrating-jmx-with-appdynamics[Integrating JMX with AppDynamics] for details. 
 
 === New Relic
 
@@ -2794,78 +2532,6 @@ You can use the xref:{page-latest-supported-mc}@management-center:jmx:jmx.adoc[C
 with New Relic. To perform this integration, attach the New Relic Java agent
 and provide an extension file that describes which metrics will be sent to New Relic.
 
-See http://docs.newrelic.com/docs/java/custom-jmx-instrumentation-by-yml[Custom JMX instrumentation by YAML]
-on the New Relic webpage.
-
-The following is an example Map monitoring `.yml` file for New Relic:
-
-[source,plain]
-----
-name: Clustered JMX
-version: 1.0
-enabled: true
-
-jmx:
-- object_name: ManagementCenter[clustername]:type=Maps,name=mapname
-  metrics:
-  - attributes: PutOperationCount, GetOperationCount, RemoveOperationCount, Hits, BackupEntryCount, OwnedEntryCount, LastAccessTime, LastUpdateTime
-  - type: simple
-- object_name: ManagementCenter[clustername]:type=Members,name="member address in double quotes"
-  metrics:
-  - attributes: OwnedPartitionCount
-  - type: simple
-----
-
-Put the `.yml` file in the `extensions` directory in your New Relic
-installation. If an `extensions` directory does not exist there, create one.
-
-After you set your extension, attach the New Relic Java agent and
-start the Management Center as shown below.
-
-[source,bash,subs="attributes+"]
-----
-java -javaagent:/path/to/newrelic.jar -Dhazelcast.mc.jmx.enabled=true\
-    -Dhazelcast.mc.jmx.port=9999 -jar hazelcast-management-center-{full-version}.jar
-----
-
-If your logging level is set to `FINER`, you should see the log listing
-in the file `newrelic_agent.log`, which is located in the `logs` directory
-in your New Relic installation. The following is an example log listing:
-
-```
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINE:
-    JMX Service : querying MBeans (1)
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    JMX Service : MBeans query ManagementCenter[dev]:type=Members,
-    name="192.168.2.79:5701", matches 1
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric OwnedPartitionCount : 68
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    JMX Service : MBeans query ManagementCenter[dev]:type=Maps,name=orders,
-    matches 1
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric Hits : 46,593
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric BackupEntryCount : 1,100
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric OwnedEntryCount : 1,100
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric RemoveOperationCount : 0
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric PutOperationCount : 118,962
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric GetOperationCount : 0
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric LastUpdateTime : 1,401,962,426,811
-Jun 5, 2014 14:18:43 +0300 [72696 62] com.newrelic.agent.jmx.JmxService FINER:
-    Recording JMX metric LastAccessTime : 1,401,962,426,811
-```
-
-Then you can navigate to your New Relic account and create custom dashboards.
-See link:https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/introduction-dashboards/[Get Started with Dashboards].
-
-While you are creating the dashboard, you should see the metrics that
-you are sending to New Relic from the Management Center in the **Metrics**
-section under the JMX directory.
+This is an {enterprise-product-name} feature. See link:https://docs.hazelcast.com/management-center/latest/integrate/jmx#integrating-jmx-with-new-relic[Integrating JMX with New Relic] for details. 
 
 
